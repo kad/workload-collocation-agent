@@ -20,7 +20,8 @@ class NUMAAllocator(Allocator):
     # parse15
     # preferences_threshold: float = 0.66
     preferences_threshold: float = 0.0  # always migrate
-    memory_migrate: bool = False
+    #memory_migrate: bool = False
+    memory_migrate: bool = True
 
     # use candidate
     candidate = False
@@ -206,12 +207,17 @@ class NUMAAllocator(Allocator):
                     balance_task_node = most_used_node
                     # break # commented to give a chance to generate other metrics
 
-                elif self.candidate and balance_task_candidate is None \
-                        and balance_task_node_candidate is None:
-                    log.debug("   CANDIT: not perfect match, but remember as candidate, continue")
-                    balance_task_candidate = task
-                    balance_task_node_candidate = best_memory_node
-                    # balance_task_node_candidate = most_free_memory_node
+                elif len(best_memory_nodes.intersection(most_free_memory_nodes)) == 1:
+                    log.debug("   OK: task not local, but both best available has only one alternative")
+                    balance_task = task
+                    balance_task_node = list(best_memory_nodes.intersection(most_free_memory_nodes))[0]
+
+                #elif self.candidate and balance_task_candidate is None \
+                #        and balance_task_node_candidate is None:
+                #    log.debug("   CANDIT: not perfect match, but remember as candidate, continue")
+                #    balance_task_candidate = task
+                #    balance_task_node_candidate = best_memory_node
+                #    # balance_task_node_candidate = most_free_memory_node
 
                 else:
                     log.debug("   IGNORE: not perfect match and candidate set(disabled), continue")
@@ -375,6 +381,9 @@ def _get_best_memory_node_v3(memory, balanced_memory):
 def _get_most_free_memory_node_v3(memory, node_memory_free):
     d = {}
     for node in node_memory_free:
+        if memory >= node_memory_free[node]:
+            # if we can't fit into free memory, don't consider that node at all
+            continue
         d[node] = round(math.log10(node_memory_free[node] - memory),1)
     free_nodes = sorted(d.items(), reverse=True, key=lambda x: x[1])
     z = free_nodes[0][1]
